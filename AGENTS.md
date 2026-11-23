@@ -53,6 +53,12 @@ network, or live server. CI also runs `just lint`, which covers `bash -n`,
 shellcheck and YAML validation, and a separate `secrets` check. Any shell,
 config, or doc change must keep `just check` green.
 
+## Git hooks
+
+Hooks are installed once per checkout with `just hooks` and run through Lefthook, loading the
+shared jobs from `awepeeps/.github` at the `hooks-v2` tag. Agents never bypass them (C7.11):
+no `LEFTHOOK=0`, no `git commit --no-verify`, and no `lefthook-local.yml`.
+
 ## Workflow
 
 Read
