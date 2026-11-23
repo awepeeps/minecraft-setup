@@ -209,16 +209,32 @@ function parseEntries(data: Buffer): Entry[] {
     if (record.length === 0) continue;
     const tab = record.indexOf("\t");
     if (tab === -1) continue;
-    const [mode, object] = record.slice(0, tab).split(" ");
-    if (mode === undefined || object === undefined) continue;
+    const fields = record.slice(0, tab).split(" ");
+    const [mode, second, third] = fields;
+    if (mode === undefined || second === undefined) continue;
+    // `ls-files --stage` prints mode, object, stage; `ls-tree` prints mode,
+    // type, object. The middle field tells them apart.
+    const object = /^[0-9a-f]{40,64}$/u.test(second) ? second : third;
+    if (object === undefined) continue;
     entries.push({ mode, object, name: record.slice(tab + 1) });
   }
   return entries;
 }
 
+/** Only the blobs this commit would add or change, not the whole index. */
 function stagedEntries(root: string): Entry[] | null {
+  const names = git(root, [
+    "diff",
+    "--cached",
+    "--name-only",
+    "--diff-filter=ACMR",
+    "-z",
+  ]);
+  if (names === null) return null;
+  const changed = new Set(names.toString("utf8").split("\0").filter(Boolean));
   const data = git(root, ["ls-files", "--stage", "-z"]);
-  return data === null ? null : parseEntries(data);
+  if (data === null) return null;
+  return parseEntries(data).filter((entry) => changed.has(entry.name));
 }
 
 function committedEntries(root: string): Entry[] | null {
@@ -241,7 +257,7 @@ function scan(entries: readonly Entry[], root: string): number {
   let failures = 0;
   for (const entry of entries) {
     if (entry.mode !== "100644" && entry.mode !== "100755") continue;
-    if (PUBLIC_PATHS.some((path) => entry.name.startsWith(path))) continue;
+    if (PUBLIC_PATHS.some((path) => entry.name.includes(path))) continue;
     const blob = git(root, ["cat-file", "blob", entry.object]);
     if (blob === null || !isText(blob)) continue;
     const labels = scanText(blob.toString("utf8"), entry.name);
@@ -253,7 +269,7 @@ function scan(entries: readonly Entry[], root: string): number {
   }
   if (failures > 0) {
     console.error(
-      `public-data: ${failures} staged file(s) carry an instance value; replace it with a placeholder.`,
+      `public-data: ${failures} file(s) carry an instance value; replace it with a placeholder.`,
     );
     return 1;
   }
