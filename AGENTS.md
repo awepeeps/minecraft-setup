@@ -43,11 +43,15 @@ native vs. custom behavior is the reference for that split.
 ## Build / test
 
 ```bash
-bash automation/run-tests.sh   # mock suites: no Docker, network, or live server
+just install   # pinned tools plus PyYAML
+just check     # formatting, bash -n, shellcheck, YAML validation, mock suites
+just secrets   # redacted gitleaks scan
 ```
 
-CI also runs `bash -n`, shellcheck, YAML validation, and a gitleaks secret scan.
-Any shell, config, or doc change must keep `run-tests.sh` and CI green.
+The mock suites run through `just test` (`automation/run-tests.sh`): no Docker,
+network, or live server. CI also runs `just lint`, which covers `bash -n`,
+shellcheck and YAML validation, and a separate `secrets` check. Any shell,
+config, or doc change must keep `just check` green.
 
 ## Workflow
 
